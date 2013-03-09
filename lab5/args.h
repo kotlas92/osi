@@ -1,9 +1,10 @@
 #ifndef ARGS_H
 #define ARGS_H
-struct Args
+
+struct ThreadArgs
 {
-	int fd;
-	char args[30];
+	int * 	pull;
+	int 	currentId;
 };
 
 #endif //ARGS_H
