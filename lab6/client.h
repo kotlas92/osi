@@ -7,6 +7,20 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
+#define IP "192.168.1.10"
+
+int                sockfd;// connection descriptor
+
+void c_term_handler(int sig)
+{
+  printf("term_handler\n");
+  if(sig==SIGINT)
+  {
+   close (sockfd);
+   exit(0);
+  }
+}
+
 //==============================================================================
 //Read strings from file
 char * readDataFromFile(char * filename)
@@ -34,6 +48,7 @@ char * readDataFromFile(char * filename)
 
 	free(currentStr);
 	fclose(sourceFile);
+
 	return sendBuff;
 }
 
@@ -44,27 +59,40 @@ void writeDataToFile(char * sourceFilename, char * data)
 	char * validFilename;
 	FILE * validFile;
 	char   currentStr[20];
-	int    i;
+	int    i=0;
+	char 	textSize[4];
 
 	validFilename = malloc(20);
+
 	memset(currentStr, '\0',strlen(currentStr));
+	memset(textSize, '\0',strlen(textSize));
 
 	strcpy(validFilename, sourceFilename);
 	strcat(validFilename, ".valid");
 
 	validFile = fopen(validFilename, "w");
 
-	for(i=0;i<strlen(data)&&i<20;i++)
+	//get size of recive text
+	for(i=0;data[i]!='\n'&&i<4;i++)
 	{
-		while(data[i]!='\n'&&i<strlen(data))
-	    {
-	      strncat(currentStr,&data[i],1);
-	      i++;
-	    }
-	    strcat(currentStr,&"\n");
-	    fputs(currentStr,validFile);
-    
-	    memset(currentStr, '\0',sizeof(currentStr));
+		textSize[i] = data[i];
+	}
+
+	//parse and save
+	for(i=3;i<atoi(textSize)+3;i++)
+	{
+		if(data[i]!='\n')
+		{
+			strncat(currentStr,&data[i],1);
+		}
+		else
+		{
+			strcat(currentStr,&"\n");
+
+			fputs(currentStr,validFile);
+			
+			memset(currentStr, '\0',sizeof(currentStr));
+		}
 	}
 
 	free(validFilename);
@@ -77,8 +105,6 @@ void writeDataToFile(char * sourceFilename, char * data)
 int  get_work_port()
 {
 	struct sockaddr_in serv_addr;
-	int sockfd=0;
-	int connfd;
 	char port[5];
 
 	memset(port, '0', sizeof(port));
@@ -87,16 +113,21 @@ int  get_work_port()
 
 	serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(5000);
-    inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+    inet_pton(AF_INET, IP, &serv_addr.sin_addr);
+
+    //this delay may be require to initialize listener on server
+    sleep(5);
 
     //connect to server-listener
-    connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
-
-    sleep(1);
+    if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr))<0)
+    {
+    	printf("can not get work port\n");
+    }
 
     //get port number
     read(sockfd, port, sizeof(port));
 
+    shutdown(sockfd,2);
     close(sockfd);
 
     return atoi(port);
@@ -109,8 +140,6 @@ void client(int argc, char ** argv)
     char    recvBuff[1024];
 	int     i;
 	int     filesCount;
-	int 	sockfd;//socket descriptor
-	int 	connfd;//connection descriptor
 	int     work_port;
     struct  sockaddr_in serv_addr; 
     char *  sourceData;
@@ -119,7 +148,7 @@ void client(int argc, char ** argv)
 
 	work_port = get_work_port();
 
-	printf("work on %d port", work_port);
+	printf("work on %d port\n", work_port);
 
 	memset(recvBuff, '0', sizeof(recvBuff));
 
@@ -128,7 +157,7 @@ void client(int argc, char ** argv)
 
 	serv_addr.sin_family = AF_INET;
     serv_addr.sin_port = htons(work_port);
-    inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr);
+    inet_pton(AF_INET, IP, &serv_addr.sin_addr);
 
 	for(i=1;i <= filesCount;i++)
 	{
@@ -139,6 +168,7 @@ void client(int argc, char ** argv)
 			if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr))<0)
 			{
 				printf("can not connect to server");
+				close(sockfd);
 				return 1;
 			}
 
@@ -153,6 +183,7 @@ void client(int argc, char ** argv)
 				return 1;
 			}
 
+			shutdown(sockfd,2);
 			close(sockfd);
 			
 			writeDataToFile(argv[i*2+1], recvBuff);
