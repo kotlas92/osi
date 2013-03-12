@@ -7,7 +7,7 @@
 #ifndef CLIENT_H
 #define CLIENT_H
 
-#define IP "192.168.1.10"
+#define IP "127.0.0.1"
 
 int                sockfd;// connection descriptor
 
@@ -116,7 +116,7 @@ int  get_work_port()
     inet_pton(AF_INET, IP, &serv_addr.sin_addr);
 
     //this delay may be require to initialize listener on server
-    sleep(5);
+    sleep(2);
 
     //connect to server-listener
     if(connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr))<0)

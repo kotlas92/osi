@@ -2,7 +2,11 @@
 #include <regex.h>
 #include <string.h>
 #include <pthread.h>
+#include <sys/syscall.h>
 
+
+//==============================================================================
+//Return 1 if string matches the regular expression (pattern)
 int match(const char *string, char *pattern)
 {
     int        status;
@@ -19,8 +23,13 @@ int match(const char *string, char *pattern)
     return(1);
 };
 
+//==============================================================================
+//This function read strings from file, check mathes to regex and write 
+//valid and invalid to appropriate output files
 void * validate(char * filename)
 {
+	printf("Created new thread with id: %d\n",syscall (SYS_gettid));
+
 	FILE * validFile;
 	FILE * invalidFile;
 	FILE * sourceFile;
@@ -69,6 +78,8 @@ void * validate(char * filename)
 	free(validFilename);
 	free(invalidFilename);
 	free(currentStr);
+
+	printf("Thread with id %d complete work\n",syscall (SYS_gettid));
 }
 
 int main(int argc, char ** argv)
@@ -79,31 +90,29 @@ int main(int argc, char ** argv)
 		return 1;
 	}
 
-	int    i;//counter to creating threads
-	int    filesCount;
-	pthread_t thread_id[10];
+	int    		i;//counter to creating threads
+	int    		filesCount;
+	pthread_t 	thread_id[10];
 
 	filesCount = (argc-1)/2;
 
-	//open threads
-	for(i=1;i <= filesCount;i+=2)
+	//Open new threads to each file
+	for(i=0;i <= filesCount;i+=2)
 	{
-		if (!strcmp(argv[i],"-f"))
+		if (!strcmp(argv[i+1],"-f"))
 		{
-			pthread_create( &thread_id[i], NULL, &validate, (void*) argv[i+1]);
+			pthread_create( &thread_id[i], NULL, &validate, (void*) argv[i+2]);
 		}
 	}
 
-	//join threads
-	for(i=1;i <= filesCount;i+=2)
+	//Join opened threads
+	for(i=0;i <= filesCount;i+=2)
 	{
-		if (!strcmp(argv[i],"-f"))
+		if (!strcmp(argv[i+1],"-f"))
 		{
 			pthread_join(thread_id[i], NULL);
 		}
 	}
-
-	printf("Succesfully validate\n");
 
 	return 0;
 }

@@ -9,10 +9,18 @@
 
 #ifndef SERVER_H
 #define SERVER_H
+//Little description
+//This server start listening 5000 port. All connecting clients receive port to
+//future interaction with server and the connection is closed immediately.
+//Server start new thread who begins listening new port and wait connection from 
+//client. 5000 port uses only to recieve request to work and for message to client
+//work port
 
 int                s_listenfd; //listener descriptor
 int                connfd[10];// connection descriptor
 
+//==============================================================================
+//Custom handler of signals SIGINT and SIGABRT to correct close of opened sockets
 void s_term_handler(int sig)
 {
   int i;
@@ -33,17 +41,20 @@ void s_term_handler(int sig)
 //Get data from socket and validate it
 void  server_validate(struct ThreadArgs * args)
 {
-  char  recvBuff[1025];
-  char  sendBuff[1024];
-  char  sendMess[1020];
-  char  messSize[4];
-  char  currentStr[20];
-  int   i;
-  int   id;
-  struct sockaddr_in serv_addr; 
-  int   work_listenfd;
-  int optval = 1;
+  char                recvBuff[1025];
+  char                sendBuff[1024];
+  char                sendMess[1020];
+  char                messSize[4];
+  char                currentStr[20];
+  int                 i;
+  int                 id;
+  struct sockaddr_in  serv_addr; 
+  int                 work_listenfd;
+  int                 optval = 1;
+  int                 t_work_port = 5001 + args->currentId;
 
+  //This variable save id in inner memory because args it is shared memory to 
+  //all threads
   id = args->currentId;
 
   work_listenfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -53,30 +64,37 @@ void  server_validate(struct ThreadArgs * args)
 
   serv_addr.sin_family = AF_INET;
   serv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-  serv_addr.sin_port = htons(5001+id); 
+  serv_addr.sin_port = htons(t_work_port); 
 
+  //This call allows re-use ports in status TIME-WAIT
   setsockopt(work_listenfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof optval);
 
   bind(work_listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)); 
 
   listen(work_listenfd, 10);
 
-  printf("listening port %d\n", 5001+id );
+  printf("listening port %d\n", t_work_port );
 
+  //Wait to connect on work port
   connfd[id] = accept(work_listenfd, (struct sockaddr*)NULL, NULL);
 
   memset(recvBuff, '0',sizeof(recvBuff));
   memset(currentStr, '\0',sizeof(currentStr));
 
+  //Get source data from client
   while(!read(connfd[id], &recvBuff, strlen(recvBuff))){}
   
   for(i=0;i<strlen(recvBuff)&&i<20;i++)
   {
+    printf("From client on port %d recieved data:\n", work_port);
     while(recvBuff[i]!='\n'&&i<strlen(recvBuff))
     {
       strncat(currentStr,&recvBuff[i],1);
       i++;
     }
+
+    printf("%s\n", currentStr);
+
     if(match(currentStr, "^[a-zA-Z0-9]+@[a-zA-Z0-9]+[.][a-zA-Z0-9]+$"))
     {
       strcat(sendMess,currentStr);
@@ -91,10 +109,13 @@ void  server_validate(struct ThreadArgs * args)
   strcat(sendBuff, "\n");
   strcat(sendBuff,sendMess);
 
+  //This delay used only to running multiple clients in one time
   sleep(10);
 
+  //Send output data to client
   write(connfd[id], sendBuff, strlen(sendBuff));
 
+  //Change thread-status on shared structure.
   args->pull[id] = 0;
 
   close(connfd[id]);
