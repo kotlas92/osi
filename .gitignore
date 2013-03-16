@@ -2,3 +2,4 @@
 *.valid
 *.out
 file*
+*.log
