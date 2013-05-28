@@ -1,6 +1,3 @@
-#define __USE_LARGEFILE64
-#define _LARGEFILE_SOURCE
-#define _LARGEFILE64_SOURCE
 #include <string.h>
 #include <stdio.h>
 #include <math.h>
@@ -42,7 +39,7 @@ long format(int blockSize)
 	int fd;
 	fd = open(FILENAME, O_RDWR );
 
-  	stat64(FILENAME, &st);
+  	stat(FILENAME, &st);
 
   	i_data_blocks_count = ((st.st_size-superblock_size-i_fat_size)/(blockSize+0.125));
 
@@ -103,7 +100,7 @@ long format(int blockSize)
 int copy_new_file(char * filename)
 {
 	struct stat st;
-	stat64(filename, &st);
+	stat(filename, &st);
 	long fat_record_offset = get_free_fat_record();
 	long blocks_count,fd_inp,fd_out,i,data_start_offset,block_size;
 	char * buf;
@@ -218,7 +215,7 @@ int copy(char * filename)
 	struct stat st;
 	int res;
 
-	if(stat64(filename, &st)==-1)
+	if(stat(filename, &st)==-1)
 	{
 		printf("file not exist\n");
 		return 1;
@@ -258,6 +255,7 @@ int * get_file_blocks(char * filename)
 int clear_fat_record(char * filename)
 {
 	char * null_record;
+	null_record = malloc(get_fat_record_size());
 	memset(null_record, '\0', get_fat_record_size());
 	int fd = open(FILENAME, O_RDWR);
 	lseek(fd, get_fat_record_offset(filename), SEEK_SET);
